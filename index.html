@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Рутина</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f0f4f8;
+      color: #2c3e50;
+      text-align: center;
+      padding: 20px;
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+    }
+
+    h1 {
+      color: #3498db;
+      margin-bottom: 10px;
+    }
+
+    textarea {
+      width: 100%;
+      max-width: 500px;
+      height: 100px;
+      padding: 12px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-size: 16px;
+      margin-bottom: 15px;
+      resize: vertical;
+    }
+
+    button {
+      background: #3498db;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      font-size: 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-bottom: 20px;
+    }
+
+    button:hover {
+      background: #2980b9;
+    }
+
+    .display {
+      font-size: 3rem;
+      font-weight: bold;
+      color: #2c3e50;
+      margin: 10px 0;
+    }
+
+    .task {
+      font-size: 1.8rem;
+      color: #3498db;
+      margin: 10px 0;
+    }
+
+    .status {
+      font-size: 1.1rem;
+      color: #7f8c8d;
+      margin: 10px 0;
+    }
+
+    .progress {
+      width: 100%;
+      max-width: 500px;
+      height: 6px;
+      background: #bdc3c7;
+      border-radius: 3px;
+      overflow: hidden;
+      margin: 15px 0;
+    }
+
+    .progress-bar {
+      height: 100%;
+      width: 0;
+      background: #3498db;
+      transition: width 0.1s linear;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Рутина</h1>
+
+  <textarea id="input" placeholder="Введите задачи:
+планка/6
+отжимания/4
+чтение/10"></textarea>
+
+  <button id="start">Запустить</button>
+
+  <div class="task" id="title">Готов</div>
+  <div class="display" id="time">00:00</div>
+  <div class="status" id="status">Ждём старта...</div>
+
+  <div class="progress">
+    <div class="progress-bar" id="progress"></div>
+  </div>
+
+  <script>
+    const input = document.getElementById('input');
+    const startBtn = document.getElementById('start');
+    const titleEl = document.getElementById('title');
+    const timeEl = document.getElementById('time');
+    const statusEl = document.getElementById('status');
+    const progressEl = document.getElementById('progress');
+
+    const audioPath = 'audio/';
+    const totalAudio = 25; // количество файлов: 1.mp3 ... 25.mp3
+    const breakTime = 20; // фиксированный перерыв в секундах
+
+    let tasks = [];
+    let index = 0;
+    let isRunning = false;
+    let isBreak = false;
+    let timeLeft = 0;
+    let timer = null;
+
+    const audio = new Audio();
+
+    // Воспроизвести аудио по номеру
+    function playSound(num) {
+      audio.src = `${audioPath}${num}.mp3`;
+      audio.play().catch(e => console.log('Автовоспроизведение запрещено', e));
+    }
+
+    // Случайное аудио от 1 до 25
+    function playRandom() {
+      const num = Math.floor(Math.random() * totalAudio) + 1;
+      playSound(num);
+    }
+
+    // Обновить отображение времени
+    function updateTime() {
+      const min = Math.floor(timeLeft / 60).toString().padStart(2, '0');
+      const sec = (timeLeft % 60).toString().padStart(2, '0');
+      timeEl.textContent = `${min}:${sec}`;
+    }
+
+    // Обновить прогресс
+    function updateProgress(total) {
+      const percent = ((total - timeLeft) / total) * 100;
+      progressEl.style.width = `${percent}%`;
+    }
+
+    // Запуск таймера
+    function startTimer(duration, label, isBreakPhase = false) {
+      isBreak = isBreakPhase;
+      timeLeft = duration;
+      const total = duration;
+      updateTime();
+      updateProgress(total);
+
+      clearInterval(timer);
+      timer = setInterval(() => {
+        timeLeft--;
+        updateTime();
+        updateProgress(total);
+
+        if (timeLeft <= 0) {
+          clearInterval(timer);
+          step();
+        }
+      }, 1000);
+    }
+
+    // Следующий шаг
+    function step() {
+      // Если это перерыв → переходим к следующей задаче
+      if (isBreak) {
+        index++;
+        if (index >= tasks.length) {
+          finish();
+          return;
+        }
+        runTask();
+        return;
+      }
+
+      // Если это задача → после неё — перерыв 20 сек
+      playRandom(); // случайный звук после задачи
+      if (index < tasks.length - 1) {
+        runBreak();
+      } else {
+        finish();
+      }
+    }
+
+    function runTask() {
+      const task = tasks[index];
+      titleEl.textContent = task.name;
+      statusEl.textContent = `Задача ${index + 1} из ${tasks.length}`;
+      startTimer(task.time, task.name, false);
+    }
+
+    function runBreak() {
+      titleEl.textContent = 'Перерыв';
+      statusEl.textContent = `20 секунд отдыха...`;
+      startTimer(breakTime, 'Перерыв', true);
+    }
+
+    function finish() {
+      titleEl.textContent = '✅ Готово!';
+      timeEl.textContent = '00:00';
+      statusEl.textContent = 'Отличная работа!';
+      progressEl.style.width = '100%';
+      isRunning = false;
+      startBtn.disabled = false;
+    }
+
+    // === СТАРТ ===
+    startBtn.addEventListener('click', () => {
+      const lines = input.value.trim().split('\n');
+      tasks = [];
+
+      for (const line of lines) {
+        const [name, timeStr] = line.split('/').map(s => s.trim());
+        const time = parseInt(timeStr);
+        if (name && !isNaN(time) && time > 0) {
+          tasks.push({ name, time });
+        }
+      }
+
+      if (tasks.length === 0) {
+        alert('Введите корректные задачи!');
+        return;
+      }
+
+      // Сброс
+      clearInterval(timer);
+      isRunning = true;
+      index = 0;
+      isBreak = false;
+
+      startBtn.disabled = true;
+      statusEl.textContent = 'Запуск...';
+      progressEl.style.width = '0%';
+
+      // Старт — звук 1
+      playSound(1);
+
+      // Запускаем первую задачу
+      runTask();
+    });
+  </script>
+
+</body>
+</html>
